@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { ChatCompletionRequestMessageRoleEnum } from 'openai';
-	export let type: ChatCompletionRequestMessageRoleEnum;
-	export let message: string;
+	import type { ChatCompletionRequestMessageRoleEnum } from 'openai'
+	export let type: ChatCompletionRequestMessageRoleEnum
+	export let message: string
 </script>
 
 <div class="chat {type === 'user' ? 'chat-end' : 'chat-start'} justify-end">

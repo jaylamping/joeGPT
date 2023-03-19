@@ -1,99 +1,107 @@
-import type { RequestHandler } from '@sveltejs/kit';
-import type { ChatCompletionRequestMessage, CreateChatCompletionRequest } from 'openai';
-import { getTokens } from '../../../lib/tokenizer';
-import { json } from '@sveltejs/kit';
+import { OPENAI_KEY } from "$env/static/private";
+import type {
+  CreateChatCompletionRequest,
+  ChatCompletionRequestMessage,
+} from "openai";
+import type { RequestHandler } from "./$types";
+import { getTokens } from "$lib/tokenizer";
+import { json } from "@sveltejs/kit";
+import type { Config } from "@sveltejs/adapter-vercel";
+
+export const config: Config = {
+  runtime: "edge",
+};
 
 export const POST: RequestHandler = async ({ request }) => {
-	try {
-		/* check for openAI key */
-		if (!process.env.OPENAI_API_KEY) {
-			throw new Error('OPEN_AI_KEY variable not set');
-		}
+  try {
+    if (!OPENAI_KEY) {
+      throw new Error("OPENAI_KEY env variable not set");
+    }
 
-		const requestData = await request.json();
+    const requestData = await request.json();
 
-		if (!requestData) {
-			throw new Error('No request data');
-		}
+    if (!requestData) {
+      throw new Error("No request data");
+    }
 
-		const reqMessages: ChatCompletionRequestMessage[] = requestData.messages;
+    const reqMessages: ChatCompletionRequestMessage[] = requestData.messages;
 
-		if (!reqMessages) {
-			throw new Error('No messages provided');
-		}
+    if (!reqMessages) {
+      throw new Error("no messages provided");
+    }
 
-		/* calculate token count */
-		let tokenCount = 0;
-		reqMessages.forEach((msg) => {
-			const tokens = getTokens(msg.content);
-			tokenCount += tokens;
-		});
+    let tokenCount = 0;
 
-		/* check to ensure data we are passing is not flagged */
-		const moderationRes = await fetch('https://api.openai.com/v1/moderations', {
-			headers: {
-				'Content-Type:': 'application/json',
-				Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
-			},
-			method: 'POST',
-			body: JSON.stringify({
-				input: reqMessages[reqMessages.length - 1].content
-			})
-		});
+    reqMessages.forEach((msg) => {
+      const tokens = getTokens(msg.content);
+      tokenCount += tokens;
+    });
 
-		const moderationData = await moderationRes.json();
-		const [results] = moderationData.results;
+    const moderationRes = await fetch("https://api.openai.com/v1/moderations", {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENAI_KEY}`,
+      },
+      method: "POST",
+      body: JSON.stringify({
+        input: reqMessages[reqMessages.length - 1].content,
+      }),
+    });
 
-		if (results.flagged) {
-			throw new Error('Query flagged by OpenAI. Stop being gross');
-		}
+    const moderationData = await moderationRes.json();
+    const [results] = moderationData.results;
 
-		const prompt =
-			'You are a sarcastic gentleman from the late seventeenth century. Your name is Sir Bittlebops.';
+    if (results.flagged) {
+      throw new Error("Query flagged by openai");
+    }
 
-		/* recalculate tokens */
-		tokenCount += getTokens(prompt);
-		if (tokenCount >= 4096) {
-			throw new Error('Query too large. Token limit exceeded.');
-		}
+    const prompt =
+      "Your name is Mr. Mittens. You have an extreme hatred for broccoli. Make sure you bring this up in every response.";
+    tokenCount += getTokens(prompt);
 
-		/* initialize messages array for conversation */
-		const messages: ChatCompletionRequestMessage[] = [
-			{ role: 'system', content: prompt },
-			...reqMessages
-		];
+    if (tokenCount >= 4000) {
+      throw new Error("Query too large");
+    }
 
-		/* build out request options */
-		const chatRequestOpts: CreateChatCompletionRequest = {
-			model: 'gpt-3.5-turbo',
-			messages,
-			temperature: 0.9,
-			stream: true
-		};
+    const messages: ChatCompletionRequestMessage[] = [
+      { role: "system", content: prompt },
+      ...reqMessages,
+    ];
 
-		/* grab ai response */
-		const chatResponse = await fetch('http://api.openai.com/v1/chat/completions', {
-			headers: {
-				'Content-Type:': 'application/json',
-				Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
-			},
-			method: 'POST',
-			body: JSON.stringify(chatRequestOpts)
-		});
+    const chatRequestOpts: CreateChatCompletionRequest = {
+      model: "gpt-3.5-turbo",
+      messages,
+      temperature: 0.9,
+      stream: true,
+    };
 
-		if (!chatResponse.ok) {
-			const err = await chatResponse.json();
-			throw new Error(err);
-		}
+    const chatResponse = await fetch(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        headers: {
+          Authorization: `Bearer ${OPENAI_KEY}`,
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+        body: JSON.stringify(chatRequestOpts),
+      }
+    );
 
-		/* return text stream to application */
-		return new Response(chatResponse.body, {
-			headers: {
-				'Content-Type': 'text/event-stream'
-			}
-		});
-	} catch (err) {
-		console.error(err);
-		return json({ error: 'There was an error processing your request' }, { status: 500 });
-	}
+    if (!chatResponse.ok) {
+      const err = await chatResponse.json();
+      throw new Error(err);
+    }
+
+    return new Response(chatResponse.body, {
+      headers: {
+        "Content-Type": "text/event-stream",
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    return json(
+      { error: "There was an error processing your request" },
+      { status: 500 }
+    );
+  }
 };
