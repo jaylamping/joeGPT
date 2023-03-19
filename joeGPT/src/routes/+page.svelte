@@ -2,11 +2,13 @@
 	import ChatMessage from '$lib/components/ChatMessage.svelte';
 	import type { ChatCompletionRequestMessage } from 'openai';
 	import { SSE } from 'sse.js';
+
 	let query: string = '';
 	let answer: string = '';
 	let loading: boolean = false;
 	let chatMessages: ChatCompletionRequestMessage[] = [];
 	let scrollToDiv: HTMLDivElement;
+
 	function scrollToBottom() {
 		setTimeout(function () {
 			scrollToDiv.scrollIntoView({ behavior: 'smooth', block: 'end', inline: 'nearest' });

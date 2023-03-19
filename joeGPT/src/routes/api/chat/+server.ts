@@ -30,7 +30,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		});
 
 		/* check to ensure data we are passing is not flagged */
-		const moderationRes = await fetch('http://api.openai.com/v1/moderations', {
+		const moderationRes = await fetch('https://api.openai.com/v1/moderations', {
 			headers: {
 				'Content-Type:': 'application/json',
 				Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
