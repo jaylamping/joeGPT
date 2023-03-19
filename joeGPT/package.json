@@ -26,6 +26,7 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"gpt3-tokenizer": "^1.1.5",
 		"openai": "^3.2.1"
 	}
 }
