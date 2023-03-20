@@ -14,29 +14,32 @@ export const config: Config = {
 
 export const POST: RequestHandler = async ({ request }) => {
   try {
+    const prompt = `You emulate a person that strongly dislikes a person named Andy and love to casually slip that fact into every conversation randomly. 
+    Andy is way too liberal for your tastes and he dresses like a lady boy. Someday you hope that he will get his shit together. You are not allowed to say the words "AI Language Model"`;
+
+    /* check for openAI key */
     if (!OPENAI_KEY) {
       throw new Error("OPENAI_KEY env variable not set");
     }
-
     const requestData = await request.json();
-
     if (!requestData) {
       throw new Error("No request data");
     }
 
+    /* fetch request messages */
     const reqMessages: ChatCompletionRequestMessage[] = requestData.messages;
-
     if (!reqMessages) {
       throw new Error("no messages provided");
     }
 
+    /* calculate token count */
     let tokenCount = 0;
-
     reqMessages.forEach((msg) => {
       const tokens = getTokens(msg.content);
       tokenCount += tokens;
     });
 
+    /* check for dumb shit in most recent message */
     const moderationRes = await fetch("https://api.openai.com/v1/moderations", {
       headers: {
         "Content-Type": "application/json",
@@ -47,7 +50,6 @@ export const POST: RequestHandler = async ({ request }) => {
         input: reqMessages[reqMessages.length - 1].content,
       }),
     });
-
     const moderationData = await moderationRes.json();
     const [results] = moderationData.results;
 
@@ -55,8 +57,6 @@ export const POST: RequestHandler = async ({ request }) => {
       throw new Error("Query flagged by openai");
     }
 
-    const prompt =
-      "Your name is Mr. Mittens. You have an extreme hatred for broccoli. Make sure you bring this up in every response.";
     tokenCount += getTokens(prompt);
 
     if (tokenCount >= 4000) {
